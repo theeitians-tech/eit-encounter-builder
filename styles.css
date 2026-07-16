@@ -1,0 +1,260 @@
+.eit-eb-view {
+	padding: 12px;
+	max-width: 1200px;
+}
+
+.eit-eb-toolbar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 14px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eit-eb-name-input {
+	flex: 1;
+}
+
+.eit-eb-danger-btn {
+	color: var(--text-error);
+}
+
+/* ---- Split layout ---- */
+
+.eit-eb-split {
+	display: flex;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.eit-eb-panel {
+	flex: 1;
+	min-width: 0;
+}
+
+.eit-eb-panel h3 {
+	margin-top: 0;
+	margin-bottom: 8px;
+}
+
+.eit-eb-ac-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.eit-eb-search-wrap {
+	margin-bottom: 10px;
+}
+
+.eit-eb-cards {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+/* ---- Cards ---- */
+
+.eit-eb-card {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 10px;
+	background: var(--background-primary);
+}
+
+.eit-eb-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.eit-eb-card-name {
+	font-weight: 600;
+}
+
+.eit-eb-derived {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-top: 6px;
+}
+
+.eit-eb-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px 10px;
+}
+
+.eit-eb-field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.eit-eb-field label {
+	font-size: 0.78em;
+	color: var(--text-muted);
+}
+
+.eit-eb-field input {
+	width: 100%;
+}
+
+/* ---- Sliders ---- */
+
+.eit-eb-slider-field {
+	margin-top: 8px;
+}
+
+.eit-eb-slider-label-row {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.85em;
+	margin-bottom: 2px;
+}
+
+.eit-eb-slider-value {
+	color: var(--text-muted);
+}
+
+.eit-eb-slider-field input[type="range"] {
+	width: 100%;
+}
+
+/* ---- Steppers ---- */
+
+.eit-eb-toggle-row {
+	display: flex;
+	gap: 16px;
+	margin-top: 10px;
+}
+
+.eit-eb-stepper-field {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.9em;
+}
+
+.eit-eb-stepper-value {
+	min-width: 1.2em;
+	text-align: center;
+	font-weight: 600;
+}
+
+/* ---- Report ---- */
+
+.eit-eb-report {
+	border-top: 2px solid var(--background-modifier-border);
+	padding-top: 12px;
+}
+
+.eit-eb-report h3 {
+	margin-top: 0;
+}
+
+.eit-eb-report-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.eit-eb-report-stat {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 8px 10px;
+}
+
+.eit-eb-report-label {
+	font-size: 0.78em;
+	color: var(--text-muted);
+	margin-bottom: 2px;
+}
+
+.eit-eb-report-value {
+	font-size: 1.2em;
+	font-weight: 600;
+}
+
+.eit-eb-winner {
+	text-align: center;
+	font-size: 1.1em;
+	font-weight: 700;
+	padding: 10px;
+	border-radius: 6px;
+}
+
+.eit-eb-winner-party {
+	background: rgba(80, 200, 120, 0.15);
+	color: #4caf50;
+}
+
+.eit-eb-winner-creatures {
+	background: rgba(220, 80, 80, 0.15);
+	color: var(--text-error);
+}
+
+.eit-eb-winner-tie {
+	background: rgba(220, 180, 60, 0.15);
+	color: #d4a017;
+}
+
+.eit-eb-winner-undetermined {
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+/* ---- Shared dropdown search styles (same pattern as Initiative Tracker) ---- */
+
+.eit-it-search {
+	width: 100%;
+	margin-bottom: 4px;
+}
+
+.eit-it-dropdown-list {
+	max-height: 160px;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+}
+
+.eit-it-dropdown-empty {
+	padding: 8px 10px;
+	opacity: 0.6;
+	font-size: 0.9em;
+}
+
+.eit-it-dropdown-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eit-it-dropdown-item:last-child {
+	border-bottom: none;
+}
+
+.eit-it-dropdown-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.eit-it-dropdown-item-added {
+	opacity: 0.5;
+}
+
+.eit-it-dropdown-name {
+	flex: 1;
+	font-weight: 500;
+}
+
+.eit-it-remove-btn {
+	color: var(--text-error);
+	font-weight: 700;
+	line-height: 1;
+}
