@@ -115,6 +115,21 @@ export class BuilderView extends ItemView {
 
 		this.sliderWithInput(
 			this.partyPanelEl,
+			"Party Average To-Hit",
+			party.averageToHit,
+			0,
+			20,
+			1,
+			(val) => {
+				this.store.mutateQuiet((s) => {
+					s.party.averageToHit = val;
+				});
+				this.renderReport();
+			}
+		);
+
+		this.sliderWithInput(
+			this.partyPanelEl,
 			"Party Total HP",
 			party.totalHp,
 			0,
@@ -130,7 +145,7 @@ export class BuilderView extends ItemView {
 
 		this.sliderWithInput(
 			this.partyPanelEl,
-			"Party Average DPR",
+			"Party Average DPR (if every attack hits)",
 			party.averageDpr,
 			0,
 			300,
@@ -215,8 +230,15 @@ export class BuilderView extends ItemView {
 			for (const file of filtered) {
 				const row = listEl.createDiv({ cls: "eit-it-dropdown-item" });
 				row.createEl("span", { text: file.basename, cls: "eit-it-dropdown-name" });
+
+				const qtyInput = row.createEl("input", {
+					attr: { type: "number", min: "1", value: "1" },
+					cls: "eit-it-qty-input",
+				});
+
 				const addBtn = row.createEl("button", { text: "Add" });
 				addBtn.onclick = async () => {
+					const quantity = Math.max(1, parseInt(qtyInput.value, 10) || 1);
 					const content = await this.app.vault.read(file);
 					const parsed = parseCreature(content, file.path);
 					const creature: EncounterCreature = {
@@ -226,6 +248,7 @@ export class BuilderView extends ItemView {
 						baseAc: parsed.ac ?? 10,
 						baseHp: parsed.hp ?? 1,
 						attacks: parsed.attacks,
+						quantity,
 						acBonus: 0,
 						hpPercent: 0,
 						resistances: 0,
@@ -233,8 +256,9 @@ export class BuilderView extends ItemView {
 					};
 					this.store.update((s) => s.creatures.push(creature));
 					new Notice(
-						`Added ${creature.name} with ${parsed.attacks.length} attack(s) parsed. ` +
-							`Double-check counts against Multiattack — free-text parsing is best-effort.`
+						`Added ${quantity > 1 ? `${quantity}× ` : ""}${creature.name} with ${
+							parsed.attacks.length
+						} attack(s) parsed. Double-check counts against Multiattack — free-text parsing is best-effort.`
 					);
 					row.addClass("eit-it-dropdown-item-added");
 				};
@@ -306,6 +330,21 @@ export class BuilderView extends ItemView {
 
 		const header = card.createDiv({ cls: "eit-eb-card-header" });
 		header.createEl("span", { text: creature.name, cls: "eit-eb-card-name" });
+
+		const qtyWrap = header.createDiv({ cls: "eit-eb-qty-wrap" });
+		qtyWrap.createEl("label", { text: "×" });
+		const qtyInput = qtyWrap.createEl("input", {
+			attr: { type: "number", min: "1", style: "width: 3.5em;" },
+		});
+		qtyInput.value = String(creature.quantity);
+		qtyInput.onchange = () => {
+			const val = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+			this.store.update((s) => {
+				const c = s.creatures.find((x) => x.id === creature.id);
+				if (c) c.quantity = val;
+			});
+		};
+
 		const removeBtn = header.createEl("button", { text: "×", cls: "eit-it-remove-btn" });
 		removeBtn.onclick = () => {
 			this.store.update((s) => {
@@ -314,7 +353,9 @@ export class BuilderView extends ItemView {
 		};
 
 		card.createDiv({
-			text: `Base AC ${creature.baseAc} · Base HP ${creature.baseHp}`,
+			text: `Base AC ${creature.baseAc} · Base HP ${creature.baseHp} each${
+				creature.quantity > 1 ? ` · ×${creature.quantity} total in encounter` : ""
+			}`,
 			cls: "eit-eb-derived",
 		});
 
@@ -563,7 +604,7 @@ export class BuilderView extends ItemView {
 	private handleReset() {
 		if (!confirm("Clear the entire encounter builder? This can't be undone.")) return;
 		this.store.update((s) => {
-			s.party = { averageAc: 15, totalHp: 100, averageDpr: 20 };
+			s.party = { averageAc: 15, averageToHit: 6, totalHp: 100, averageDpr: 20 };
 			s.creatures = [];
 		});
 	}
