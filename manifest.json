@@ -1,0 +1,10 @@
+{
+	"id": "eit-encounter-builder",
+	"name": "Eit Encounter Builder",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.0",
+	"description": "Build and stress-test combat encounters against your party before running them, using live DPR and rounds-to-win math.",
+	"author": "Kesean",
+	"authorUrl": "",
+	"isDesktopOnly": false
+}
