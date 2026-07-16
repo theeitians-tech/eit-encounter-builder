@@ -61,15 +61,18 @@ function renderNote(
 
 	lines.push("## Party");
 	lines.push(`- **Average AC:** ${state.party.averageAc}`);
+	lines.push(`- **Average To-Hit:** +${state.party.averageToHit}`);
 	lines.push(`- **Total HP:** ${state.party.totalHp}`);
-	lines.push(`- **Average DPR:** ${state.party.averageDpr}`);
+	lines.push(`- **Average DPR (if every attack hits):** ${state.party.averageDpr}`);
 	lines.push("");
 
 	lines.push("## Creatures");
 	for (const c of state.creatures) {
 		lines.push(
-			`- **${c.name}** — AC ${c.baseAc}${c.acBonus >= 0 ? "+" : ""}${c.acBonus}, ` +
-				`HP ${c.baseHp} (${c.hpPercent >= 0 ? "+" : ""}${c.hpPercent}%), ` +
+			`- **${c.name}**${c.quantity > 1 ? ` ×${c.quantity}` : ""} — AC ${c.baseAc}${
+				c.acBonus >= 0 ? "+" : ""
+			}${c.acBonus}, ` +
+				`HP ${c.baseHp} each (${c.hpPercent >= 0 ? "+" : ""}${c.hpPercent}%), ` +
 				`Resistances ${c.resistances}, Immunities ${c.immunities}`
 		);
 		for (const a of c.attacks) {
