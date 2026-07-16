@@ -1,4 +1,4 @@
-import { EncounterCreature, PartyMember } from "./types";
+import { avgDamageForAttack, EncounterCreature, PartyMember } from "./types";
 
 /**
  * Standard 5e hit-chance approximation: roll needed on d20 to hit,
@@ -26,6 +26,12 @@ export function partyTotalHp(members: PartyMember[]): number {
 	return members.reduce((sum, m) => sum + m.currentHp, 0);
 }
 
+export function averagePartyAcFromMembers(members: PartyMember[]): number | null {
+	if (members.length === 0) return null;
+	const sum = members.reduce((s, m) => s + m.ac, 0);
+	return Math.round(sum / members.length);
+}
+
 export function creatureEffectiveAc(creature: EncounterCreature): number {
 	return creature.baseAc + creature.acBonus;
 }
@@ -36,10 +42,9 @@ export function creatureEffectiveHp(creature: EncounterCreature): number {
 }
 
 export function creatureDpr(creature: EncounterCreature, targetAc: number): number {
-	const dmgMultiplier = 1 + creature.dmgPercent / 100;
 	return creature.attacks.reduce((sum, attack) => {
 		const chance = hitChance(attack.toHit, targetAc);
-		return sum + attack.count * chance * attack.avgDamage * dmgMultiplier;
+		return sum + attack.count * chance * avgDamageForAttack(attack);
 	}, 0);
 }
 
@@ -48,7 +53,7 @@ export interface EncounterReport {
 	partyTotalHp: number;
 	creatureSideDpr: number;
 	creatureSideEffectiveHp: number;
-	roundsForPartyToWin: number | null; // null = party can never win (0 DPR)
+	roundsForPartyToWin: number | null;
 	roundsForCreaturesToWin: number | null;
 	winner: "party" | "creatures" | "tie" | "undetermined";
 }
@@ -62,10 +67,7 @@ export function buildReport(
 	const pHp = partyTotalHp(members);
 
 	const totalCreatureHp = creatures.reduce((sum, c) => sum + creatureEffectiveHp(c), 0);
-	const totalCreatureDpr = creatures.reduce(
-		(sum, c) => sum + creatureDpr(c, partyAc),
-		0
-	);
+	const totalCreatureDpr = creatures.reduce((sum, c) => sum + creatureDpr(c, partyAc), 0);
 
 	const roundsForPartyToWin = pDpr > 0 ? Math.ceil(totalCreatureHp / pDpr) : null;
 	const roundsForCreaturesToWin = totalCreatureDpr > 0 ? Math.ceil(pHp / totalCreatureDpr) : null;
