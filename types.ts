@@ -7,11 +7,20 @@ export interface AbilityScores {
 	cha: number;
 }
 
+export type DieType = 4 | 6 | 8 | 10 | 12 | 20;
+
 export interface CreatureAttack {
+	id: string;
 	name: string;
 	toHit: number;
-	avgDamage: number;
-	count: number; // how many times per round, from Multiattack parsing (default 1)
+	diceCount: number;
+	dieType: DieType;
+	bonus: number;
+	count: number; // how many times per round
+}
+
+export function avgDamageForAttack(a: CreatureAttack): number {
+	return a.diceCount * ((a.dieType + 1) / 2) + a.bonus;
 }
 
 export interface ParsedCreature {
@@ -28,6 +37,7 @@ export interface PartyMember {
 	name: string;
 	sourcePath: string | null;
 	currentHp: number;
+	ac: number;
 
 	// Offense inputs (granular, per your spec)
 	abilityMod: number;
@@ -47,8 +57,7 @@ export interface EncounterCreature {
 
 	// Sliders / toggles
 	acBonus: number; // flat, -5 to +10
-	hpPercent: number; // -50 to +100
-	dmgPercent: number; // -50 to +100
+	hpPercent: number; // -50 to +100, in steps of 5
 	resistances: number; // +100 effective HP each
 	immunities: number; // +200 effective HP each
 }
