@@ -20,11 +20,33 @@ export function creatureEffectiveHp(creature: EncounterCreature): number {
 	return scaledHp + creature.resistances * 25 + creature.immunities * 100;
 }
 
-export function creatureDpr(creature: EncounterCreature, targetAc: number): number {
+export function creatureDprSingle(creature: EncounterCreature, targetAc: number): number {
 	return creature.attacks.reduce((sum, attack) => {
 		const chance = hitChance(attack.toHit, targetAc);
 		return sum + attack.count * chance * avgDamageForAttack(attack);
 	}, 0);
+}
+
+/** Quantity-weighted average AC across all creatures — used as the party's target. */
+function quantityWeightedAverageAc(creatures: EncounterCreature[]): number {
+	const totalQty = creatures.reduce((s, c) => s + c.quantity, 0);
+	if (totalQty === 0) return 10;
+	const weightedSum = creatures.reduce(
+		(s, c) => s + creatureEffectiveAc(c) * c.quantity,
+		0
+	);
+	return weightedSum / totalQty;
+}
+
+/**
+ * Party's effective DPR: the entered "on-hit" damage, reduced by hit
+ * chance against the creatures' (quantity-weighted average) AC — mirrors
+ * how creature DPR is calculated, so AC sliders actually move the needle
+ * on both sides of the report.
+ */
+export function partyEffectiveDpr(party: PartyStats, creatures: EncounterCreature[]): number {
+	const targetAc = quantityWeightedAverageAc(creatures);
+	return party.averageDpr * hitChance(party.averageToHit, targetAc);
 }
 
 export interface EncounterReport {
@@ -38,12 +60,15 @@ export interface EncounterReport {
 }
 
 export function buildReport(party: PartyStats, creatures: EncounterCreature[]): EncounterReport {
-	const pDpr = party.averageDpr;
+	const pDpr = partyEffectiveDpr(party, creatures);
 	const pHp = party.totalHp;
 
-	const totalCreatureHp = creatures.reduce((sum, c) => sum + creatureEffectiveHp(c), 0);
+	const totalCreatureHp = creatures.reduce(
+		(sum, c) => sum + creatureEffectiveHp(c) * c.quantity,
+		0
+	);
 	const totalCreatureDpr = creatures.reduce(
-		(sum, c) => sum + creatureDpr(c, party.averageAc),
+		(sum, c) => sum + creatureDprSingle(c, party.averageAc) * c.quantity,
 		0
 	);
 
