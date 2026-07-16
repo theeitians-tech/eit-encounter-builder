@@ -1,0 +1,95 @@
+import { App, normalizePath, TFile } from "obsidian";
+import { BuilderState } from "./types";
+import { EncounterReport } from "./calculations";
+
+const ENCOUNTER_FOLDER = "Encounters";
+
+export async function saveEncounterNote(
+	app: App,
+	state: BuilderState,
+	report: EncounterReport,
+	encounterName: string
+): Promise<string> {
+	const folderPath = normalizePath(ENCOUNTER_FOLDER);
+	const folder = app.vault.getAbstractFileByPath(folderPath);
+	if (!folder) {
+		await app.vault.createFolder(folderPath);
+	}
+
+	const date = new Date().toISOString().slice(0, 10);
+	const safeName = encounterName.trim() || "Untitled Encounter";
+	const fileName = `Encounter - ${safeName} - ${date}.md`;
+	const filePath = normalizePath(`${ENCOUNTER_FOLDER}/${fileName}`);
+
+	const content = renderNote(state, report, safeName, date);
+
+	const existing = app.vault.getAbstractFileByPath(filePath);
+	if (existing instanceof TFile) {
+		await app.vault.modify(existing, content);
+	} else {
+		await app.vault.create(filePath, content);
+	}
+
+	return filePath;
+}
+
+function renderNote(
+	state: BuilderState,
+	report: EncounterReport,
+	name: string,
+	date: string
+): string {
+	const lines: string[] = [];
+	lines.push(`# Encounter - ${name}`);
+	lines.push(`*Built ${date}*`);
+	lines.push("");
+	lines.push("## Report");
+	lines.push(`- **Party DPR:** ${report.partyDpr}`);
+	lines.push(`- **Party Total HP:** ${report.partyTotalHp}`);
+	lines.push(`- **Creature-side DPR:** ${report.creatureSideDpr}`);
+	lines.push(`- **Creature-side Effective HP:** ${report.creatureSideEffectiveHp}`);
+	lines.push(
+		`- **Rounds for party to win:** ${report.roundsForPartyToWin ?? "never (0 party DPR)"}`
+	);
+	lines.push(
+		`- **Rounds for creatures to win:** ${
+			report.roundsForCreaturesToWin ?? "never (0 creature DPR)"
+		}`
+	);
+	lines.push(`- **Predicted winner:** ${report.winner}`);
+	lines.push("");
+
+	lines.push("## Party");
+	lines.push(`Average Party AC: ${state.partyAverageAc}`);
+	lines.push("");
+	for (const m of state.partyMembers) {
+		lines.push(
+			`- **${m.name}** — HP ${m.currentHp}, to-hit +${
+				m.abilityMod + m.proficiencyBonus + m.magicBonus
+			} (ability ${m.abilityMod}, prof ${m.proficiencyBonus}, magic ${m.magicBonus}), ` +
+				`avg dmg/hit ${m.damageDiceAvg + m.abilityMod + m.magicBonus}, attacks/round ${
+					m.attacksPerRound
+				}`
+		);
+	}
+	lines.push("");
+
+	lines.push("## Creatures");
+	for (const c of state.creatures) {
+		lines.push(
+			`- **${c.name}** — AC ${c.baseAc}${c.acBonus >= 0 ? "+" : ""}${c.acBonus}, ` +
+				`HP ${c.baseHp} (${c.hpPercent >= 0 ? "+" : ""}${c.hpPercent}%), ` +
+				`Dmg ${c.dmgPercent >= 0 ? "+" : ""}${c.dmgPercent}%, ` +
+				`Resistances ${c.resistances}, Immunities ${c.immunities}`
+		);
+		for (const a of c.attacks) {
+			lines.push(
+				`  - ${a.name}: +${a.toHit} to hit, ${a.avgDamage} avg dmg, ×${a.count}/round`
+			);
+		}
+	}
+	lines.push("");
+	lines.push("#AOE");
+
+	return lines.join("\n");
+}
