@@ -1,4 +1,4 @@
-import { AbilityScores, CreatureAttack, ParsedCreature } from "./types";
+import { AbilityScores, CreatureAttack, DieType, ParsedCreature, newId } from "./types";
 
 const ABILITY_HEADER_RE =
 	/\|\s*STR\s*\|\s*DEX\s*\|\s*CON\s*\|\s*INT\s*\|\s*WIS\s*\|\s*CHA\s*\|/i;
@@ -6,6 +6,8 @@ const ABILITY_CELL_RE = /(-?\d+)\s*\(([+-]\d+)\)/g;
 
 const AC_RE = /\*\*Armor Class\*\*\s*(\d+)/i;
 const HP_RE = /\*\*Hit Points\*\*\s*(\d+)/i;
+const CURRENT_HP_RE = /\*\*Current HP\*\*\s*(\d+)/i;
+const PROFICIENCY_RE = /\*\*Proficiency Bonus\*\*\s*\+?(\d+)/i;
 const NAME_RE = /^#\s+(.+)$/m;
 
 const ACTIONS_SECTION_RE = /\*\*\*Actions\*\*\*([\s\S]*?)(?:\*\*\*|$)/i;
@@ -21,8 +23,13 @@ const NUMBER_WORDS: Record<string, number> = {
 	five: 5,
 	six: 6,
 };
+// Matches "two claw attacks", "three with its talons", "one Lullaby's Call
+// attack" — broadened to allow apostrophes/hyphens in names and an
+// optional "with (its/her/his/their)" filler phrase. Free-text Multiattack
+// parsing is inherently best-effort; the UI lets you correct counts
+// directly when a statblock's phrasing doesn't match.
 const MULTIATTACK_CLAUSE_RE =
-	/(\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\d+)\s+([a-zA-Z][a-zA-Z\s]*?)\s+attacks?/gi;
+	/(\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\d+)\s+(?:with\s+(?:its|her|his|their)\s+)?([a-zA-Z][a-zA-Z'\-\s]*?)\s+attacks?/gi;
 
 export function parseCreature(content: string, sourcePath: string): ParsedCreature {
 	const nameMatch = content.match(NAME_RE);
@@ -38,6 +45,33 @@ export function parseCreature(content: string, sourcePath: string): ParsedCreatu
 	const attacks = parseAttacks(content);
 
 	return { name, ac, hp, abilityScores, attacks, sourcePath };
+}
+
+export interface ParsedPlayer {
+	name: string;
+	ac: number | null;
+	currentHp: number | null;
+	maxHp: number | null;
+	proficiencyBonus: number | null;
+}
+
+export function parsePlayerSheet(content: string, sourcePath: string): ParsedPlayer {
+	const nameMatch = content.match(NAME_RE);
+	const name = nameMatch ? nameMatch[1].trim() : sourcePath;
+
+	const acMatch = content.match(AC_RE);
+	const ac = acMatch ? parseInt(acMatch[1], 10) : null;
+
+	const maxHpMatch = content.match(HP_RE);
+	const maxHp = maxHpMatch ? parseInt(maxHpMatch[1], 10) : null;
+
+	const currentHpMatch = content.match(CURRENT_HP_RE);
+	const currentHp = currentHpMatch ? parseInt(currentHpMatch[1], 10) : maxHp;
+
+	const profMatch = content.match(PROFICIENCY_RE);
+	const proficiencyBonus = profMatch ? parseInt(profMatch[1], 10) : null;
+
+	return { name, ac, currentHp, maxHp, proficiencyBonus };
 }
 
 function parseAbilityScores(content: string): AbilityScores | null {
@@ -63,12 +97,11 @@ function parseAbilityScores(content: string): AbilityScores | null {
 }
 
 /**
- * Parses every individual attack line under ***Actions***, computing the
- * average damage from its dice notation directly (the Eit statblock
- * format doesn't include a pre-computed flat average, unlike stock 5e).
- * Then attempts to resolve a Multiattack trait's counts per named attack;
- * falls back to "each parsed attack happens once per round" if that
- * phrasing can't be confidently parsed.
+ * Parses every individual attack line under ***Actions***, keeping the
+ * dice count/type/bonus as separate editable fields rather than a flat
+ * average — so the UI can let you correct or fully rewrite any attack
+ * (die type, count, bonus, attacks/round) when a statblock's phrasing
+ * doesn't parse cleanly, or when you just want to test "what if."
  */
 function parseAttacks(content: string): CreatureAttack[] {
 	const sectionMatch = ACTIONS_SECTION_RE.exec(content);
@@ -82,18 +115,21 @@ function parseAttacks(content: string): CreatureAttack[] {
 		const name = m[1].trim();
 		const toHit = parseInt(m[2], 10);
 		const diceCount = parseInt(m[3], 10);
-		const dieSize = parseInt(m[4], 10);
+		const dieType = normalizeDieType(parseInt(m[4], 10));
 		const modSign = m[5];
 		const modVal = m[6] ? parseInt(m[6], 10) : 0;
-		const modifier = modSign === "-" ? -modVal : modVal;
+		const bonus = modSign === "-" ? -modVal : modVal;
 
-		const avgDamage = diceCount * ((dieSize + 1) / 2) + modifier;
-
-		attacks.push({ name, toHit, avgDamage: round1(avgDamage), count: 1 });
+		attacks.push({ id: newId(), name, toHit, diceCount, dieType, bonus, count: 1 });
 	}
 
 	applyMultiattackCounts(content, attacks);
 	return attacks;
+}
+
+function normalizeDieType(n: number): DieType {
+	const valid: DieType[] = [4, 6, 8, 10, 12, 20];
+	return valid.includes(n as DieType) ? (n as DieType) : 6;
 }
 
 function applyMultiattackCounts(content: string, attacks: CreatureAttack[]) {
@@ -125,17 +161,11 @@ function applyMultiattackCounts(content: string, attacks: CreatureAttack[]) {
 	}
 
 	if (anyResolved) {
-		// Multiattack explicitly named specific attacks — anything not
-		// mentioned isn't part of the standard routine, so it drops to 0.
 		for (const attack of attacks) {
 			attack.count = resolvedCounts.get(attack.name) ?? 0;
 		}
 	}
-	// If nothing resolved (generic phrasing like "three attacks" with
-	// multiple distinct attack types and no name given), leave every
-	// attack at its default count of 1 — safest fallback.
-}
-
-function round1(n: number): number {
-	return Math.round(n * 10) / 10;
+	// If nothing resolved, leave every attack at its default count of 1 —
+	// safest fallback. Always double-check Multiattack counts in the UI
+	// against the actual statblock, especially for unusually-phrased ones.
 }
