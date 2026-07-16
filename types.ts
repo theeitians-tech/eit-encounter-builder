@@ -32,19 +32,10 @@ export interface ParsedCreature {
 	sourcePath: string;
 }
 
-export interface PartyMember {
-	id: string;
-	name: string;
-	sourcePath: string | null;
-	currentHp: number;
-	ac: number;
-
-	// Offense inputs (granular, per your spec)
-	abilityMod: number;
-	proficiencyBonus: number;
-	magicBonus: number;
-	damageDiceAvg: number; // e.g. 2d6 -> enter 7
-	attacksPerRound: number;
+export interface PartyStats {
+	averageAc: number;
+	totalHp: number;
+	averageDpr: number;
 }
 
 export interface EncounterCreature {
@@ -63,13 +54,15 @@ export interface EncounterCreature {
 }
 
 export interface BuilderState {
-	partyMembers: PartyMember[];
-	partyAverageAc: number;
+	party: PartyStats;
 	creatures: EncounterCreature[];
 }
 
 export function emptyBuilderState(): BuilderState {
-	return { partyMembers: [], partyAverageAc: 15, creatures: [] };
+	return {
+		party: { averageAc: 15, totalHp: 100, averageDpr: 20 },
+		creatures: [],
+	};
 }
 
 export function newId(): string {
