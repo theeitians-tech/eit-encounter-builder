@@ -35,7 +35,8 @@ export interface ParsedCreature {
 export interface PartyStats {
 	averageAc: number;
 	totalHp: number;
-	averageDpr: number;
+	averageToHit: number;
+	averageDpr: number; // raw damage assuming a hit — hit chance is applied separately
 }
 
 export interface EncounterCreature {
@@ -45,6 +46,7 @@ export interface EncounterCreature {
 	baseAc: number;
 	baseHp: number;
 	attacks: CreatureAttack[];
+	quantity: number;
 
 	// Sliders / toggles
 	acBonus: number; // flat, -5 to +10
@@ -60,7 +62,7 @@ export interface BuilderState {
 
 export function emptyBuilderState(): BuilderState {
 	return {
-		party: { averageAc: 15, totalHp: 100, averageDpr: 20 },
+		party: { averageAc: 15, averageToHit: 6, totalHp: 100, averageDpr: 20 },
 		creatures: [],
 	};
 }
