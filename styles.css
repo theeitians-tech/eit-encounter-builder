@@ -88,7 +88,17 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	gap: 8px;
 	margin-bottom: 6px;
+}
+
+.eit-eb-qty-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-left: auto;
 }
 
 .eit-eb-card-name {
