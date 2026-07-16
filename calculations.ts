@@ -1,4 +1,4 @@
-import { avgDamageForAttack, EncounterCreature, PartyMember } from "./types";
+import { avgDamageForAttack, EncounterCreature, PartyStats } from "./types";
 
 /**
  * Standard 5e hit-chance approximation: roll needed on d20 to hit,
@@ -11,34 +11,13 @@ export function hitChance(toHit: number, targetAc: number): number {
 	return Math.max(0.05, Math.min(0.95, chance));
 }
 
-export function memberDpr(member: PartyMember, targetAc: number): number {
-	const toHit = member.abilityMod + member.proficiencyBonus + member.magicBonus;
-	const avgDamagePerHit = member.damageDiceAvg + member.abilityMod + member.magicBonus;
-	const chance = hitChance(toHit, targetAc);
-	return member.attacksPerRound * chance * avgDamagePerHit;
-}
-
-export function partyDpr(members: PartyMember[], targetAc: number): number {
-	return members.reduce((sum, m) => sum + memberDpr(m, targetAc), 0);
-}
-
-export function partyTotalHp(members: PartyMember[]): number {
-	return members.reduce((sum, m) => sum + m.currentHp, 0);
-}
-
-export function averagePartyAcFromMembers(members: PartyMember[]): number | null {
-	if (members.length === 0) return null;
-	const sum = members.reduce((s, m) => s + m.ac, 0);
-	return Math.round(sum / members.length);
-}
-
 export function creatureEffectiveAc(creature: EncounterCreature): number {
 	return creature.baseAc + creature.acBonus;
 }
 
 export function creatureEffectiveHp(creature: EncounterCreature): number {
 	const scaledHp = creature.baseHp * (1 + creature.hpPercent / 100);
-	return scaledHp + creature.resistances * 100 + creature.immunities * 200;
+	return scaledHp + creature.resistances * 25 + creature.immunities * 100;
 }
 
 export function creatureDpr(creature: EncounterCreature, targetAc: number): number {
@@ -58,16 +37,15 @@ export interface EncounterReport {
 	winner: "party" | "creatures" | "tie" | "undetermined";
 }
 
-export function buildReport(
-	members: PartyMember[],
-	partyAc: number,
-	creatures: EncounterCreature[]
-): EncounterReport {
-	const pDpr = partyDpr(members, averageCreatureAc(creatures));
-	const pHp = partyTotalHp(members);
+export function buildReport(party: PartyStats, creatures: EncounterCreature[]): EncounterReport {
+	const pDpr = party.averageDpr;
+	const pHp = party.totalHp;
 
 	const totalCreatureHp = creatures.reduce((sum, c) => sum + creatureEffectiveHp(c), 0);
-	const totalCreatureDpr = creatures.reduce((sum, c) => sum + creatureDpr(c, partyAc), 0);
+	const totalCreatureDpr = creatures.reduce(
+		(sum, c) => sum + creatureDpr(c, party.averageAc),
+		0
+	);
 
 	const roundsForPartyToWin = pDpr > 0 ? Math.ceil(totalCreatureHp / pDpr) : null;
 	const roundsForCreaturesToWin = totalCreatureDpr > 0 ? Math.ceil(pHp / totalCreatureDpr) : null;
@@ -92,12 +70,6 @@ export function buildReport(
 		roundsForCreaturesToWin,
 		winner,
 	};
-}
-
-function averageCreatureAc(creatures: EncounterCreature[]): number {
-	if (creatures.length === 0) return 10;
-	const sum = creatures.reduce((s, c) => s + creatureEffectiveAc(c), 0);
-	return sum / creatures.length;
 }
 
 function round1(n: number): number {
