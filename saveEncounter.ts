@@ -60,18 +60,9 @@ function renderNote(
 	lines.push("");
 
 	lines.push("## Party");
-	lines.push(`Average Party AC: ${state.partyAverageAc}`);
-	lines.push("");
-	for (const m of state.partyMembers) {
-		lines.push(
-			`- **${m.name}** — HP ${m.currentHp}, AC ${m.ac}, to-hit +${
-				m.abilityMod + m.proficiencyBonus + m.magicBonus
-			} (ability ${m.abilityMod}, prof ${m.proficiencyBonus}, magic ${m.magicBonus}), ` +
-				`avg dmg/hit ${m.damageDiceAvg + m.abilityMod + m.magicBonus}, attacks/round ${
-					m.attacksPerRound
-				}`
-		);
-	}
+	lines.push(`- **Average AC:** ${state.party.averageAc}`);
+	lines.push(`- **Total HP:** ${state.party.totalHp}`);
+	lines.push(`- **Average DPR:** ${state.party.averageDpr}`);
 	lines.push("");
 
 	lines.push("## Creatures");
