@@ -43,6 +43,13 @@
 	align-items: center;
 	gap: 8px;
 	margin-bottom: 10px;
+	flex-wrap: wrap;
+}
+
+.eit-eb-hint {
+	font-size: 0.78em;
+	color: var(--text-muted);
+	font-style: italic;
 }
 
 .eit-eb-search-wrap {
@@ -142,6 +149,69 @@
 	min-width: 1.2em;
 	text-align: center;
 	font-weight: 600;
+}
+
+/* ---- Editable attack rows ---- */
+
+.eit-eb-attacks {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.eit-eb-attacks-header {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-bottom: 6px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.eit-eb-attack-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eit-eb-attack-row:last-of-type {
+	border-bottom: none;
+}
+
+.eit-eb-attack-name {
+	flex: 1;
+	min-width: 6em;
+	font-weight: 500;
+}
+
+.eit-eb-attack-field {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.eit-eb-attack-field label {
+	font-size: 0.75em;
+	color: var(--text-muted);
+}
+
+.eit-eb-attack-field input,
+.eit-eb-attack-field select {
+	width: 3.2em;
+}
+
+.eit-eb-attack-avg {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	white-space: nowrap;
+	margin-left: auto;
+}
+
+.eit-eb-add-attack-btn {
+	margin-top: 6px;
+	width: 100%;
 }
 
 /* ---- Report ---- */
