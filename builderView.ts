@@ -1,16 +1,9 @@
 import { ItemView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import { BuilderStore } from "./state";
-import {
-	CreatureAttack,
-	DieType,
-	EncounterCreature,
-	PartyMember,
-	avgDamageForAttack,
-	newId,
-} from "./types";
-import { getBestiaryFiles, getPlayerFiles } from "./vaultIndex";
-import { parseCreature, parsePlayerSheet } from "./parser";
-import { averagePartyAcFromMembers, buildReport } from "./calculations";
+import { CreatureAttack, DieType, EncounterCreature, avgDamageForAttack, newId } from "./types";
+import { getBestiaryFiles } from "./vaultIndex";
+import { parseCreature } from "./parser";
+import { buildReport } from "./calculations";
 import { saveEncounterNote } from "./saveEncounter";
 
 export const VIEW_TYPE_BUILDER = "eit-encounter-builder-view";
@@ -21,13 +14,11 @@ export class BuilderView extends ItemView {
 	store: BuilderStore;
 	unsubscribe: (() => void) | null = null;
 
-	private partyCardsEl: HTMLElement | null = null;
+	private partyPanelEl: HTMLElement | null = null;
 	private creatureCardsEl: HTMLElement | null = null;
 	private reportEl: HTMLElement | null = null;
 	private encounterNameInput: HTMLInputElement | null = null;
-	private acInput: HTMLInputElement | null = null;
 
-	private playerFiles: TFile[] = [];
 	private bestiaryFiles: TFile[] = [];
 
 	constructor(leaf: WorkspaceLeaf, store: BuilderStore) {
@@ -48,7 +39,6 @@ export class BuilderView extends ItemView {
 	}
 
 	async onOpen() {
-		this.playerFiles = getPlayerFiles(this.app);
 		this.bestiaryFiles = getBestiaryFiles(this.app);
 		this.buildLayout();
 		this.unsubscribe = this.store.subscribe(() => this.renderDynamic());
@@ -82,26 +72,11 @@ export class BuilderView extends ItemView {
 
 		const partyPanel = split.createDiv({ cls: "eit-eb-panel" });
 		partyPanel.createEl("h3", { text: "Party" });
-
-		const acRow = partyPanel.createDiv({ cls: "eit-eb-ac-row" });
-		acRow.createEl("label", { text: "Average Party AC:" });
-		this.acInput = acRow.createEl("input", {
-			attr: { type: "number", style: "width: 4em;" },
-		});
-		this.acInput.value = String(this.store.state.partyAverageAc);
-		acRow.createEl("span", {
-			text: "(auto-set from added players' AC — edit freely to override)",
+		partyPanel.createEl("p", {
+			text: "Enter your party's aggregate stats directly — keep a running note of these per party you DM for.",
 			cls: "eit-eb-hint",
 		});
-		this.acInput.onchange = () => {
-			const val = parseInt(this.acInput!.value, 10);
-			this.store.update((s) => {
-				if (!isNaN(val)) s.partyAverageAc = val;
-			});
-		};
-
-		this.buildPlayerSearch(partyPanel);
-		this.partyCardsEl = partyPanel.createDiv({ cls: "eit-eb-cards" });
+		this.partyPanelEl = partyPanel.createDiv({ cls: "eit-eb-party-stats" });
 
 		const creaturePanel = split.createDiv({ cls: "eit-eb-panel" });
 		creaturePanel.createEl("h3", { text: "Creatures" });
@@ -111,66 +86,109 @@ export class BuilderView extends ItemView {
 		this.reportEl = container.createDiv({ cls: "eit-eb-report" });
 	}
 
-	private buildPlayerSearch(panel: HTMLElement) {
-		const searchWrap = panel.createDiv({ cls: "eit-eb-search-wrap" });
-		const searchInput = searchWrap.createEl("input", {
-			attr: { type: "text", placeholder: "Search #PC notes..." },
-			cls: "eit-it-search",
-		});
-		const listEl = searchWrap.createDiv({ cls: "eit-it-dropdown-list" });
+	/**
+	 * Renders the three party-wide slider+input pairs. Called once from
+	 * buildLayout() and again whenever the party stats change elsewhere
+	 * (there's no other mutation path here, but renderDynamic() refreshes
+	 * it anyway to stay consistent with the rest of the view).
+	 */
+	private renderPartyStats() {
+		if (!this.partyPanelEl) return;
+		this.partyPanelEl.empty();
 
-		const renderList = () => {
-			listEl.empty();
-			const term = searchInput.value.trim().toLowerCase();
-			const filtered = this.playerFiles.filter((f) =>
-				f.basename.toLowerCase().includes(term)
-			);
-			if (filtered.length === 0) {
-				listEl.createDiv({
-					text: term ? "No matching players." : "No #PC notes found.",
-					cls: "eit-it-dropdown-empty",
+		const party = this.store.state.party;
+
+		this.sliderWithInput(
+			this.partyPanelEl,
+			"Average Party AC",
+			party.averageAc,
+			5,
+			30,
+			1,
+			(val) => {
+				this.store.mutateQuiet((s) => {
+					s.party.averageAc = val;
 				});
-				return;
+				this.renderReport();
 			}
-			for (const file of filtered) {
-				const row = listEl.createDiv({ cls: "eit-it-dropdown-item" });
-				row.createEl("span", { text: file.basename, cls: "eit-it-dropdown-name" });
-				const addBtn = row.createEl("button", { text: "Add" });
-				addBtn.onclick = async () => {
-					const content = await this.app.vault.read(file);
-					const parsed = parsePlayerSheet(content, file.path);
-					const member: PartyMember = {
-						id: newId(),
-						name: parsed.name,
-						sourcePath: file.path,
-						currentHp: parsed.currentHp ?? 1,
-						ac: parsed.ac ?? 10,
-						abilityMod: 3,
-						proficiencyBonus: parsed.proficiencyBonus ?? 2,
-						magicBonus: 0,
-						damageDiceAvg: 5,
-						attacksPerRound: 1,
-					};
-					this.store.update((s) => {
-						s.partyMembers.push(member);
-						this.recomputeAverageAc(s);
-					});
-					const missing: string[] = [];
-					if (parsed.ac === null) missing.push("AC");
-					if (parsed.proficiencyBonus === null) missing.push("Proficiency Bonus");
-					new Notice(
-						`Added ${member.name}.` +
-							(missing.length
-								? ` Couldn't find ${missing.join("/")} on the sheet — using a default, check the card.`
-								: " Fill in the remaining offense stats.")
-					);
-					row.addClass("eit-it-dropdown-item-added");
-				};
-			}
-		};
+		);
 
-		searchInput.oninput = renderList;
-		renderList();
+		this.sliderWithInput(
+			this.partyPanelEl,
+			"Party Total HP",
+			party.totalHp,
+			0,
+			1000,
+			5,
+			(val) => {
+				this.store.mutateQuiet((s) => {
+					s.party.totalHp = val;
+				});
+				this.renderReport();
+			}
+		);
+
+		this.sliderWithInput(
+			this.partyPanelEl,
+			"Party Average DPR",
+			party.averageDpr,
+			0,
+			300,
+			1,
+			(val) => {
+				this.store.mutateQuiet((s) => {
+					s.party.averageDpr = val;
+				});
+				this.renderReport();
+			}
+		);
+	}
+
+	/**
+	 * A slider and a number input that stay in sync and share one onChange.
+	 * Typing a value outside the slider's range still works — the number
+	 * input isn't clamped, only the slider's visual position is.
+	 */
+	private sliderWithInput(
+		container: HTMLElement,
+		label: string,
+		value: number,
+		min: number,
+		max: number,
+		step: number,
+		onChange: (val: number) => void
+	) {
+		const wrap = container.createDiv({ cls: "eit-eb-party-field" });
+		const labelRow = wrap.createDiv({ cls: "eit-eb-slider-label-row" });
+		labelRow.createEl("span", { text: label });
+
+		const numberInput = labelRow.createEl("input", {
+			attr: { type: "number", style: "width: 5em;" },
+			cls: "eit-eb-party-number",
+		});
+		numberInput.value = String(value);
+
+		const slider = wrap.createEl("input", {
+			attr: {
+				type: "range",
+				min: String(min),
+				max: String(max),
+				step: String(step),
+			},
+		});
+		slider.value = String(Math.max(min, Math.min(max, value)));
+
+		slider.oninput = () => {
+			const val = parseFloat(slider.value);
+			numberInput.value = String(val);
+			onChange(val);
+		};
+		numberInput.onchange = () => {
+			const val = parseFloat(numberInput.value);
+			if (isNaN(val)) return;
+			slider.value = String(Math.max(min, Math.min(max, val)));
+			onChange(val);
+		};
 	}
 
 	private buildCreatureSearch(panel: HTMLElement) {
@@ -227,28 +245,15 @@ export class BuilderView extends ItemView {
 		renderList();
 	}
 
-	private recomputeAverageAc(s: { partyMembers: PartyMember[]; partyAverageAc: number }) {
-		const avg = averagePartyAcFromMembers(s.partyMembers);
-		if (avg !== null) {
-			s.partyAverageAc = avg;
-			if (this.acInput) this.acInput.value = String(avg);
-		}
-	}
-
 	private renderDynamic() {
-		if (!this.partyCardsEl || !this.creatureCardsEl || !this.reportEl) return;
+		if (!this.creatureCardsEl || !this.reportEl) return;
 
-		this.partyCardsEl.empty();
-		for (const member of this.store.state.partyMembers) {
-			this.renderPartyCard(this.partyCardsEl, member);
-		}
+		this.renderPartyStats();
 
 		this.creatureCardsEl.empty();
 		for (const creature of this.store.state.creatures) {
 			this.renderCreatureCard(this.creatureCardsEl, creature);
 		}
-
-		if (this.acInput) this.acInput.value = String(this.store.state.partyAverageAc);
 
 		this.renderReport();
 	}
@@ -257,11 +262,7 @@ export class BuilderView extends ItemView {
 		if (!this.reportEl) return;
 		this.reportEl.empty();
 
-		const report = buildReport(
-			this.store.state.partyMembers,
-			this.store.state.partyAverageAc,
-			this.store.state.creatures
-		);
+		const report = buildReport(this.store.state.party, this.store.state.creatures);
 
 		this.reportEl.createEl("h3", { text: "Report" });
 		const grid = this.reportEl.createDiv({ cls: "eit-eb-report-grid" });
@@ -298,72 +299,6 @@ export class BuilderView extends ItemView {
 		const cell = grid.createDiv({ cls: "eit-eb-report-stat" });
 		cell.createDiv({ text: label, cls: "eit-eb-report-label" });
 		cell.createDiv({ text: value, cls: "eit-eb-report-value" });
-	}
-
-	private renderPartyCard(container: HTMLElement, member: PartyMember) {
-		const card = container.createDiv({ cls: "eit-eb-card" });
-
-		const header = card.createDiv({ cls: "eit-eb-card-header" });
-		header.createEl("span", { text: member.name, cls: "eit-eb-card-name" });
-		const removeBtn = header.createEl("button", { text: "×", cls: "eit-it-remove-btn" });
-		removeBtn.onclick = () => {
-			this.store.update((s) => {
-				s.partyMembers = s.partyMembers.filter((m) => m.id !== member.id);
-				this.recomputeAverageAc(s);
-			});
-		};
-
-		const fields = card.createDiv({ cls: "eit-eb-fields" });
-
-		this.numberField(fields, "HP", member.currentHp, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.currentHp = val;
-			});
-		});
-		this.numberField(fields, "AC", member.ac, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.ac = val;
-				this.recomputeAverageAc(s);
-			});
-		});
-		this.numberField(fields, "Ability Mod", member.abilityMod, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.abilityMod = val;
-			});
-		});
-		this.numberField(fields, "Proficiency", member.proficiencyBonus, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.proficiencyBonus = val;
-			});
-		});
-		this.numberField(fields, "Magic Bonus", member.magicBonus, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.magicBonus = val;
-			});
-		});
-		this.numberField(fields, "Dmg Dice Avg", member.damageDiceAvg, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.damageDiceAvg = val;
-			});
-		});
-		this.numberField(fields, "Attacks/Round", member.attacksPerRound, (val) => {
-			this.store.update((s) => {
-				const m = s.partyMembers.find((x) => x.id === member.id);
-				if (m) m.attacksPerRound = val;
-			});
-		});
-
-		const toHit = member.abilityMod + member.proficiencyBonus + member.magicBonus;
-		card.createDiv({
-			text: `To-hit: +${toHit}`,
-			cls: "eit-eb-derived",
-		});
 	}
 
 	private renderCreatureCard(container: HTMLElement, creature: EncounterCreature) {
@@ -559,22 +494,6 @@ export class BuilderView extends ItemView {
 		};
 	}
 
-	private numberField(
-		container: HTMLElement,
-		label: string,
-		value: number,
-		onChange: (val: number) => void
-	) {
-		const wrap = container.createDiv({ cls: "eit-eb-field" });
-		wrap.createEl("label", { text: label });
-		const input = wrap.createEl("input", { attr: { type: "number" } });
-		input.value = String(value);
-		input.onchange = () => {
-			const val = parseFloat(input.value);
-			if (!isNaN(val)) onChange(val);
-		};
-	}
-
 	private sliderField(
 		container: HTMLElement,
 		label: string,
@@ -632,11 +551,7 @@ export class BuilderView extends ItemView {
 
 	private async handleSave() {
 		const name = this.encounterNameInput?.value.trim() || "Untitled Encounter";
-		const report = buildReport(
-			this.store.state.partyMembers,
-			this.store.state.partyAverageAc,
-			this.store.state.creatures
-		);
+		const report = buildReport(this.store.state.party, this.store.state.creatures);
 		try {
 			const path = await saveEncounterNote(this.app, this.store.state, report, name);
 			new Notice(`Saved encounter to ${path}`);
@@ -648,9 +563,8 @@ export class BuilderView extends ItemView {
 	private handleReset() {
 		if (!confirm("Clear the entire encounter builder? This can't be undone.")) return;
 		this.store.update((s) => {
-			s.partyMembers = [];
+			s.party = { averageAc: 15, totalHp: 100, averageDpr: 20 };
 			s.creatures = [];
-			s.partyAverageAc = 15;
 		});
 	}
 }
