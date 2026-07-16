@@ -1,5 +1,5 @@
 import { App, normalizePath, TFile } from "obsidian";
-import { BuilderState } from "./types";
+import { BuilderState, avgDamageForAttack } from "./types";
 import { EncounterReport } from "./calculations";
 
 const ENCOUNTER_FOLDER = "Encounters";
@@ -64,7 +64,7 @@ function renderNote(
 	lines.push("");
 	for (const m of state.partyMembers) {
 		lines.push(
-			`- **${m.name}** — HP ${m.currentHp}, to-hit +${
+			`- **${m.name}** — HP ${m.currentHp}, AC ${m.ac}, to-hit +${
 				m.abilityMod + m.proficiencyBonus + m.magicBonus
 			} (ability ${m.abilityMod}, prof ${m.proficiencyBonus}, magic ${m.magicBonus}), ` +
 				`avg dmg/hit ${m.damageDiceAvg + m.abilityMod + m.magicBonus}, attacks/round ${
@@ -79,12 +79,13 @@ function renderNote(
 		lines.push(
 			`- **${c.name}** — AC ${c.baseAc}${c.acBonus >= 0 ? "+" : ""}${c.acBonus}, ` +
 				`HP ${c.baseHp} (${c.hpPercent >= 0 ? "+" : ""}${c.hpPercent}%), ` +
-				`Dmg ${c.dmgPercent >= 0 ? "+" : ""}${c.dmgPercent}%, ` +
 				`Resistances ${c.resistances}, Immunities ${c.immunities}`
 		);
 		for (const a of c.attacks) {
+			const sign = a.bonus >= 0 ? "+" : "";
 			lines.push(
-				`  - ${a.name}: +${a.toHit} to hit, ${a.avgDamage} avg dmg, ×${a.count}/round`
+				`  - ${a.name}: +${a.toHit} to hit, ${a.diceCount}d${a.dieType}${sign}${a.bonus} ` +
+					`(avg ${avgDamageForAttack(a).toFixed(1)}), ×${a.count}/round`
 			);
 		}
 	}
