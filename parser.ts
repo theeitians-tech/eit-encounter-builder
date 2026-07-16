@@ -6,8 +6,6 @@ const ABILITY_CELL_RE = /(-?\d+)\s*\(([+-]\d+)\)/g;
 
 const AC_RE = /\*\*Armor Class\*\*\s*(\d+)/i;
 const HP_RE = /\*\*Hit Points\*\*\s*(\d+)/i;
-const CURRENT_HP_RE = /\*\*Current HP\*\*\s*(\d+)/i;
-const PROFICIENCY_RE = /\*\*Proficiency Bonus\*\*\s*\+?(\d+)/i;
 const NAME_RE = /^#\s+(.+)$/m;
 
 const ACTIONS_SECTION_RE = /\*\*\*Actions\*\*\*([\s\S]*?)(?:\*\*\*|$)/i;
@@ -45,33 +43,6 @@ export function parseCreature(content: string, sourcePath: string): ParsedCreatu
 	const attacks = parseAttacks(content);
 
 	return { name, ac, hp, abilityScores, attacks, sourcePath };
-}
-
-export interface ParsedPlayer {
-	name: string;
-	ac: number | null;
-	currentHp: number | null;
-	maxHp: number | null;
-	proficiencyBonus: number | null;
-}
-
-export function parsePlayerSheet(content: string, sourcePath: string): ParsedPlayer {
-	const nameMatch = content.match(NAME_RE);
-	const name = nameMatch ? nameMatch[1].trim() : sourcePath;
-
-	const acMatch = content.match(AC_RE);
-	const ac = acMatch ? parseInt(acMatch[1], 10) : null;
-
-	const maxHpMatch = content.match(HP_RE);
-	const maxHp = maxHpMatch ? parseInt(maxHpMatch[1], 10) : null;
-
-	const currentHpMatch = content.match(CURRENT_HP_RE);
-	const currentHp = currentHpMatch ? parseInt(currentHpMatch[1], 10) : maxHp;
-
-	const profMatch = content.match(PROFICIENCY_RE);
-	const proficiencyBonus = profMatch ? parseInt(profMatch[1], 10) : null;
-
-	return { name, ac, currentHp, maxHp, proficiencyBonus };
 }
 
 function parseAbilityScores(content: string): AbilityScores | null {
