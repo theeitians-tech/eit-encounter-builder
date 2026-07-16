@@ -1,6 +1,6 @@
 {
 	"name": "eit-encounter-builder",
-	"version": "1.0.0",
+	"version": "1.0.3",
 	"description": "Encounter balance testing for Eit.",
 	"main": "main.js",
 	"scripts": {
